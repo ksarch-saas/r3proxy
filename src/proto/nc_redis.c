@@ -2789,6 +2789,11 @@ redis_routing(struct context *ctx, struct server_pool *pool,
         struct server *server = NULL;
 
         idx = server_pool_hash(pool, key, keylen) % REDIS_CLUSTER_SLOTS;
+
+        if (pool->slots[idx] == NULL) {
+            log_debug(LOG_WARN, "no accessible server found in slot %d", idx);
+            return NULL;
+        }
         
         if (msg->type > MSG_REQ_REDIS_WRITECMD_START) {
             server = pool->slots[idx]->master;
@@ -2807,7 +2812,7 @@ redis_routing(struct context *ctx, struct server_pool *pool,
             }
         }
         if (server == NULL) {
-            log_debug(LOG_WARN, "no readable server found in slot %d", idx);
+            log_debug(LOG_WARN, "no accessible server found in slot %d", idx);
             return NULL;
         }
 
