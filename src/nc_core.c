@@ -67,6 +67,8 @@ core_ctx_create(struct instance *nci)
     ctx->max_ncconn = 0;
     ctx->max_nsconn = 0;
 
+    ctx->lua_path = nci->lua_path;
+
     now = nc_msec_now();
     if (now < 0) {
         nc_free(ctx);

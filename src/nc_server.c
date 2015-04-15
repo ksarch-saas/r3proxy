@@ -738,6 +738,7 @@ server_pool_each_preconnect(void *elem, void *data)
 {
     rstatus_t status;
     struct server_pool *sp = elem;
+    const char *lua_path = data;
 
     if (!sp->preconnect) {
         return NC_OK;
@@ -748,7 +749,7 @@ server_pool_each_preconnect(void *elem, void *data)
         return status;
     }
 
-    script_init(sp);
+    script_init(sp, lua_path);
 
     return NC_OK;
 }
@@ -758,7 +759,7 @@ server_pool_preconnect(struct context *ctx)
 {
     rstatus_t status;
 
-    status = array_each(&ctx->pool, server_pool_each_preconnect, NULL);
+    status = array_each(&ctx->pool, server_pool_each_preconnect, ctx->lua_path);
     if (status != NC_OK) {
         return status;
     }
@@ -852,6 +853,50 @@ server_pool_each_run(void *elem, void *data)
     return server_pool_run(elem);
 }
 
+static
+void *server_script_thread(void *elem) {
+    struct server_pool *sp = elem;
+    int64_t t_start, t_end;
+    sleep(2);
+    for(;;) {
+        char buf[1];
+        if (1 != read(sp->noti_fd[0], buf, sizeof(buf))) {
+            return NULL;
+        }
+        log_debug(LOG_VERB, "in server_scrip_thread: script_call");
+        t_start = nc_usec_now();
+        script_call(sp, sp->mbuf_thread->start, sp->mbuf_thread->last - sp->mbuf_thread->start, 
+                    "update_cluster_nodes");
+        t_end = nc_usec_now();
+        log_debug(LOG_VERB, "update slots done in %lldus",t_end - t_start);
+    }
+}
+
+/* init create the thread to run script and init a mutex*/
+static rstatus_t
+server_pool_each_script_thread(void *elem, void *data)
+{
+    struct server_pool *sp = elem;
+
+    if (pthread_mutex_init(&sp->slots_mutex, NULL) != 0) {
+        log_debug(LOG_WARN, "pthread_mutex_init failed");
+        return NC_ERROR;
+    }
+    /* create a pipe to notify */
+    if (pipe(sp->noti_fd) != 0) {
+        log_debug(LOG_WARN, "pipe failed");
+        return NC_ERROR;
+    }
+
+    /* start the thread*/
+    if (pthread_create(&sp->scri_thread, NULL, server_script_thread, (void *)sp)) {
+        log_debug(LOG_WARN, "pthread create failed");
+        return NC_ERROR;
+    }
+
+    return NC_OK;
+}
+
 static rstatus_t
 server_pool_each_set_table(void *elem, void *data)
 {
@@ -899,6 +944,12 @@ server_pool_init(struct array *server_pool, struct array *conf_pool,
 
    /* update addr to server table */
     status = array_each(server_pool, server_pool_each_set_table, ctx);
+    if (status != NC_OK) {
+        return status;
+    }
+
+    /* init slots mutex */
+    status = array_each(server_pool, server_pool_each_script_thread, ctx);
     if (status != NC_OK) {
         return status;
     }
@@ -966,13 +1017,13 @@ server_pool_each_tick(void *elem, void *data)
     struct server_pool *pool = elem;
 
     pool->pool_tick(pool);
-    
+
     /* always returns NC_OK */
     return NC_OK;
 }
 
-void 
-server_pool_tick(struct context *ctx) 
+void
+server_pool_tick(struct context *ctx)
 {
     struct array *pools;
 

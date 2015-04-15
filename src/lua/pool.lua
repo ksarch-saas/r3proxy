@@ -14,6 +14,9 @@ ffi.cdef[[
       void ffi_server_table_delete(struct server_pool *pool, const char *name);
 
       rstatus_t ffi_stats_reset(struct server_pool *pool);
+
+      void ffi_slots_lock(struct server_pool *pool);
+      void ffi_slots_unlock(struct server_pool *pool);
 ]]
 
 local server = require("server")
@@ -42,7 +45,7 @@ function _M.fetch_server(self, config)
    else
       s = table.remove(self._se_pool, 1)
    end
-   
+
    return s
 end
 
@@ -59,7 +62,7 @@ function _M.fetch_replica_set(self)
    else
       rs = table.remove(self._rs_pool, 1)
    end
-   
+ 
    return rs
 end
 
@@ -170,9 +173,11 @@ function _M.build_replica_sets(self)
 end
 
 function _M.bind_slots(self)
+   C.ffi_slots_lock(__pool)
    for _,rs in ipairs(self.replica_sets) do
       rs:bind_slots()
    end
+   C.ffi_slots_unlock(__pool)
 end
 
 return _M

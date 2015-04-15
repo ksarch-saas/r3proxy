@@ -3,7 +3,7 @@
 
 struct server_pool;
 
-rstatus_t script_init(struct server_pool *pool);
+rstatus_t script_init(struct server_pool *pool, const char *path);
 rstatus_t script_call(struct server_pool *pool, const uint8_t *body, int len, const char *func_name);
 
 /* avoid compiler noise */

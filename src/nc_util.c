@@ -634,3 +634,4 @@ nc_unresolve_desc(int sd)
 
     return nc_unresolve_addr(addr, addrlen);
 }
+

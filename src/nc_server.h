@@ -143,6 +143,10 @@ struct server_pool {
     struct string      zone;                 /* avaliablity zone */
     struct hash_table  *server_table;        /* address(ip:port) to server map */
     struct replicaset  *slots[REDIS_CLUSTER_SLOTS];
+    pthread_mutex_t    slots_mutex;          /* mutex to access the slot */
+    pthread_t          scri_thread;
+    int                noti_fd[2];           /* pipe fd to notify thread */
+    struct mbuf        *mbuf_thread;         /* set the value before call the script thread */
     lua_State *L;
 };
 
