@@ -23,4 +23,4 @@ nearest = {
    hz01 = {"hz01",{"nj02","nj03"},{"tc","jx"}}
 }
 
-return primary_preferred
+return nearest

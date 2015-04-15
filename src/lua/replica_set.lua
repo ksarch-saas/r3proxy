@@ -26,7 +26,9 @@ end
 function _M.set_master(self, s)
    self.ranges = s.ranges
    s.replica_set = self
-   C.ffi_replicaset_set_master(self.raw, s.raw)
+   if s.writable then
+      C.ffi_replicaset_set_master(self.raw, s.raw)
+   end
 end
 
 function _M.add_tagged_server(self, s)

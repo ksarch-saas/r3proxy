@@ -171,6 +171,7 @@ ffi_server_connect(struct server *server) {
         server_close(pool->ctx, conn);
         return NC_ERROR;
     }
+
     return NC_OK;
 }
 
@@ -230,7 +231,7 @@ ffi_pool_add_server(struct server_pool *pool, struct server *server) {
     *s = server;
     server->idx = n;
 
-    log_debug(LOG_VERB, "add server idx %d port %d", server->idx, server->port);
+    log_debug(LOG_NOTICE, "add server idx %d port %d", server->idx, server->port);
 }
 
 rstatus_t
@@ -293,7 +294,7 @@ script_call(struct server_pool *pool, const uint8_t *body, int len, const char *
 
     /* Call update function */
     if (lua_pcall(L, 1, 0, 0) != 0) {
-        log_debug(LOG_VERB, "script: call %s failed - %s", func_name, lua_tostring(L, -1));
+        log_debug(LOG_WARN, "script: call %s failed - %s", func_name, lua_tostring(L, -1));
         return NC_ERROR;
     }
 
@@ -305,7 +306,9 @@ script_call(struct server_pool *pool, const uint8_t *body, int len, const char *
         if (last_rs != rs) {
             last_rs = rs;
             log_debug(LOG_VERB, "slot %5d master %.*s tags[%d,%d,%d,%d,%d]",
-                      i, rs->master->pname.len, rs->master->pname.data,
+                      i, 
+                      (rs->master ? rs->master->pname.len : 3), 
+                      (rs->master ? (char*)rs->master->pname.data : "nil"),
                       array_n(&rs->tagged_servers[0]),
                       array_n(&rs->tagged_servers[1]),
                       array_n(&rs->tagged_servers[2]),
