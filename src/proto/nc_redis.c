@@ -2965,7 +2965,6 @@ redis_pre_rsp_forward(struct context *ctx, struct conn * s_conn, struct msg *msg
 
 ferror:
         
-=======
         log_debug(LOG_WARN, "server: failed to redirect message");
 
         msg_put(pmsg);
