@@ -635,10 +635,3 @@ nc_unresolve_desc(int sd)
     return nc_unresolve_addr(addr, addrlen);
 }
 
-int
-get_my_path(char *buf, int len) {
-    if (buf == NULL) {
-        return NC_ERROR;
-    }
-    return readlink("/proc/self/exe", buf, len);
-}

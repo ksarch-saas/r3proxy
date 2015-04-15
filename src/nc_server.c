@@ -738,6 +738,7 @@ server_pool_each_preconnect(void *elem, void *data)
 {
     rstatus_t status;
     struct server_pool *sp = elem;
+    const char *lua_path = data;
 
     if (!sp->preconnect) {
         return NC_OK;
@@ -748,7 +749,7 @@ server_pool_each_preconnect(void *elem, void *data)
         return status;
     }
 
-    script_init(sp);
+    script_init(sp, lua_path);
 
     return NC_OK;
 }
@@ -758,7 +759,7 @@ server_pool_preconnect(struct context *ctx)
 {
     rstatus_t status;
 
-    status = array_each(&ctx->pool, server_pool_each_preconnect, NULL);
+    status = array_each(&ctx->pool, server_pool_each_preconnect, ctx->lua_path);
     if (status != NC_OK) {
         return status;
     }

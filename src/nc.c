@@ -29,6 +29,7 @@
 #include <nc_signal.h>
 
 #define NC_CONF_PATH        "conf/nutcracker.yml"
+#define NC_LUA_PATH         "bin/lua"
 
 #define NC_LOG_DEFAULT      LOG_NOTICE
 #define NC_LOG_MIN          LOG_EMERG
@@ -65,10 +66,11 @@ static struct option long_options[] = {
     { "stats-addr",     required_argument,  NULL,   'a' },
     { "pid-file",       required_argument,  NULL,   'p' },
     { "mbuf-size",      required_argument,  NULL,   'm' },
+    { "lua-script-path",required_argument,  NULL,   'l' },
     { NULL,             0,                  NULL,    0  }
 };
 
-static char short_options[] = "hVtdDv:o:c:s:i:a:p:m:";
+static char short_options[] = "hVtdDv:o:c:s:i:a:p:m:l:";
 
 static rstatus_t
 nc_daemonize(int dump_core)
@@ -222,13 +224,15 @@ nc_show_usage(void)
         "  -i, --stats-interval=N : set stats aggregation interval in msec (default: %d msec)" CRLF
         "  -p, --pid-file=S       : set pid file (default: %s)" CRLF
         "  -m, --mbuf-size=N      : set size of mbuf chunk in bytes (default: %d bytes)" CRLF
+        "  -l, --lua-path=path    : set lua script load path (default: %s)" CRLF
         "",
         NC_LOG_DEFAULT, NC_LOG_MIN, NC_LOG_MAX,
         NC_LOG_PATH != NULL ? NC_LOG_PATH : "stderr",
         NC_CONF_PATH,
         NC_STATS_PORT, NC_STATS_ADDR, NC_STATS_INTERVAL,
         NC_PID_FILE != NULL ? NC_PID_FILE : "off",
-        NC_MBUF_SIZE);
+        NC_MBUF_SIZE,
+        NC_LUA_PATH);
 }
 
 static rstatus_t
@@ -283,6 +287,7 @@ nc_set_default_options(struct instance *nci)
     nci->log_filename = NC_LOG_PATH;
 
     nci->conf_filename = NC_CONF_PATH;
+    nci->lua_path = NC_LUA_PATH;
 
     nci->stats_port = NC_STATS_PORT;
     nci->stats_addr = NC_STATS_ADDR;
@@ -403,6 +408,10 @@ nc_get_options(int argc, char **argv, struct instance *nci)
             }
 
             nci->mbuf_chunk_size = (size_t)value;
+            break;
+
+        case 'l':
+            nci->lua_path = optarg;
             break;
 
         case '?':

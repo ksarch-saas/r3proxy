@@ -12,6 +12,8 @@
 #include <nc_script.h>
 #include <nc_stats.h>
 
+#define MAX_PATH_LEN 1000
+
 static int 
 split(lua_State *L) 
 {
@@ -265,37 +267,50 @@ ffi_stats_reset(struct server_pool *pool) {
     stats_reset(st, &ctx->pool);
 }
 
+static int
+setLuaPath(lua_State* L, const char* path)
+{
+    char lua_path[MAX_PATH_LEN] = {'\0'}; //to save the package.path var
+    char *str;
+    lua_getglobal(L, "package");
+    lua_getfield(L, -1, "path"); // get field "path" from table at top of stack (-1)
+    str = lua_tostring(L, -1); // grab path string from top of stack
+
+    log_debug(LOG_VERB, "get lua package.path %s", str);
+
+    strcat(lua_path, str);
+    strcat(lua_path, ";");
+    strcat(lua_path, path);
+    strcat(lua_path, "/?.lua");
+    lua_pop(L, 1); // get rid of the string on the stack we just pushed on line 5
+    lua_pushstring(L, lua_path); // push the new one
+
+    log_debug(LOG_VERB, "set lua package.path %s", lua_path);
+
+    lua_setfield(L, -2, "path"); // set the field "path" in table at -2 with value at top of stack
+    lua_pop(L, 1); // get rid of package table from top of stack
+    return 0; // all done!
+}
+
 /* init */
 rstatus_t
-script_init(struct server_pool *pool)
+script_init(struct server_pool *pool, const char *lua_path)
 {
     lua_State *L;
 
     L = luaL_newstate();                        /* Create Lua state variable */
     pool->L = L;
     luaL_openlibs(L);                           /* Load Lua libraries */
-    #define MAX_PATH_LEN 1000
     char path[MAX_PATH_LEN] = {'\0'};
-    char current[MAX_PATH_LEN] = {'\0'};
-    char *lua_name = "lua/redis.lua";
+    char *lua_name = "redis.lua";
 
-    if (get_my_path(path, sizeof(path)) == NC_ERROR) {
-        log_error("get_my_path filed:%s", strerror(errno));
-        return NC_ERROR;
-    }
+    strcat(path, lua_path);
+    strcat(path, "/");
+    strcat(path, lua_name);
 
-    dirname(path);
+    setLuaPath(L, lua_path);
 
-    log_debug(LOG_VERB, "lua script path is %s", path);
-
-    getcwd(current,sizeof(current));
-
-    if (chdir(path) < 0) {
-        log_error("chdir failed: %s", path);
-        return NC_ERROR;
-    }
-
-    if (luaL_loadfile(L, lua_name)) {
+    if (luaL_loadfile(L, path)) {
         log_debug(LOG_VERB, "init lua script failed - %s", lua_tostring(L, -1));
         return NC_ERROR;
     }
@@ -309,10 +324,6 @@ script_init(struct server_pool *pool)
 
     if (lua_pcall(L, 0, 0, 0) != 0) {
         log_error("call lua script failed - %s", lua_tostring(L, -1));
-    }
-    if (chdir(current) < 0) {
-        log_error("chdir failed: %s", current);
-        return NC_ERROR;
     }
 
     return NC_OK;

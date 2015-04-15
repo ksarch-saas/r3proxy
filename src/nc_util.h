@@ -212,7 +212,4 @@ char *nc_unresolve_addr(struct sockaddr *addr, socklen_t addrlen);
 char *nc_unresolve_peer_desc(int sd);
 char *nc_unresolve_desc(int sd);
 
-/* return binary path in buf and len */
-int get_my_path(char *buf, int len);
-
 #endif

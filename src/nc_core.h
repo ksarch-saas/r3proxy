@@ -135,6 +135,7 @@ struct context {
     uint32_t           max_nfd;     /* max # files */
     uint32_t           max_ncconn;  /* max # client connections */
     uint32_t           max_nsconn;  /* max # server connections */
+    char               *lua_path;   /* lua script path copy from instance*/
 };
 
 
@@ -151,6 +152,7 @@ struct instance {
     pid_t           pid;                         /* process id */
     char            *pid_filename;               /* pid filename */
     unsigned        pidfile:1;                   /* pid file created? */
+    char            *lua_path;                   /* lua script path */
 };
 
 struct context *core_start(struct instance *nci);
