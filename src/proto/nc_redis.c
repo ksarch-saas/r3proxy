@@ -31,7 +31,7 @@
 #define AUTH_REQUIRE_PASSWORD "-NOAUTH Authentication required\r\n"
 #define AUTH_NO_PASSWORD "-ERR Client sent AUTH, but no password is set\r\n"
 
-#define REDIS_UPDATE_TICKS (10000/NC_TICK_INTERVAL) /* 10s */
+#define REDIS_UPDATE_TICKS (5000/NC_TICK_INTERVAL) /* 5s */
 #define REDIS_CLUSTER_NODES_MESSAGE "*3\r\n$7\r\ncluster\r\n$5\r\nnodes\r\n$5\r\nextra\r\n"
 #define REDIS_CLUSTER_ASKING_MESSAGE "*1\r\n$6\r\nASKING\r\n"
 
@@ -2791,7 +2791,8 @@ redis_routing(struct context *ctx, struct server_pool *pool,
         idx = server_pool_hash(pool, key, keylen) % REDIS_CLUSTER_SLOTS;
 
         if (pool->slots[idx] == NULL) {
-            log_debug(LOG_WARN, "no accessible server found in slot %d", idx);
+            log_debug(LOG_WARN, "no accessible server found in slot %d for key '%.*s'", 
+                      idx, keylen, key);
             return NULL;
         }
         
@@ -2905,7 +2906,7 @@ redis_pre_rsp_forward(struct context *ctx, struct conn * s_conn, struct msg *msg
 
         server = assoc_find(pool->server_table, addr, len);
         if (server == NULL) {
-            log_debug(LOG_WARN, "server: server to be asked not found");
+            log_warn("redis: server to be asked not found");
             goto ferror;
         }
 
@@ -2962,7 +2963,7 @@ redis_pre_rsp_forward(struct context *ctx, struct conn * s_conn, struct msg *msg
         return NC_ERROR;
 
 ferror:
-        log_debug(LOG_WARN, "server: failed to redirect message");
+        log_warn("redis: failed to redirect message");
         
         msg_put(pmsg);
         msg_put(msg);
@@ -3001,7 +3002,7 @@ redis_pool_tick(struct server_pool *pool)
     }
 
     if (pool->need_update_slots) {
-        int idx;
+        int idx, i;
         struct msg *msg;
         rstatus_t status;
         struct server* server;
@@ -3017,21 +3018,38 @@ redis_pool_tick(struct server_pool *pool)
         status = build_custom_message(msg, (uint8_t*)REDIS_CLUSTER_NODES_MESSAGE,
                                       sizeof(REDIS_CLUSTER_NODES_MESSAGE)-1, 0);
         if (status != NC_OK) {
-            log_debug(LOG_WARN, "server: failed to build probe message");
+            log_warn("redis: failed to build probe message");
             msg_put(msg);
             return;
         }
         
         idx = random() % 16384;
-        if (pool->slots[idx] != NULL) {
-            server = pool->slots[idx]->master;
-        } else {
+        if (pool->slots[idx] == NULL) {
             server = *(struct server**)array_get(&pool->server, 0);
+        } else {
+            for (i = 0; i < NC_MAXTAGNUM; i++) {
+                uint32_t n;
+                struct array *slaves;
+
+                slaves = &pool->slots[idx]->tagged_servers[i];
+                if (array_n(slaves) == 0) {
+                    continue;
+                }
+                n = random() % array_n(slaves);
+                server = *(struct server**)array_get(slaves, n);
+                break;
+            }
+        }
+
+        if (server == NULL) {
+            log_warn("redis: failed to fetch server");
+            msg_put(msg);
+            return;
         }
 
         conn = server_conn(server);
         if (conn == NULL) {
-            log_debug(LOG_WARN, "server: failed to fetch conn");
+            log_warn("redis: failed to fetch conn");
             msg_put(msg);
             return;
         }

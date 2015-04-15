@@ -4,15 +4,19 @@ print ("Script Init Begin")
 
 local pool = require("pool")
 
-function parse(body)
-   local lines = body:strip():split("\n")
-   table.remove(lines, 1)
-
+function parse(lines)
    local configs = {}
-   -- parse
+   local idx = 1
+   local node_lines = {}
+   -- skip summary
    for i,line in ipairs(lines) do
+      if string.sub(line,1,2) ~= "# " then
+         table.insert(node_lines,line)
+      end
+   end
+   -- parse nodes
+   for _,line in ipairs(node_lines) do
       local xs = line:split(" ")
-
       local addr = xs[4]:split(":")
       ip, port = addr[1], addr[2]
 
@@ -79,8 +83,30 @@ function update_cluster_nodes(msg)
       return
    end
 
+   local lines = msg:strip():split("\n")
+   local bytes = tonumber(string.sub(lines[1],2,-1))
+   if bytes == nil then
+      error("nodes info invalid")
+      return
+   end
+   if bytes > 16384 then
+      error("nodes info too large > 16384 (FIXME)")
+      return
+   end
+   table.remove(lines, 1)
+
    -- parse message returned by 'cluster nodes'
-   local configs = parse(msg)
+   local configs = parse(lines)
+
+   if #configs == 0 then
+      error("no server found")
+      return
+   end
+
+   if #configs == 1 and configs[1].ranges ~= nil and #configs[1].ranges == 0 then
+      error("free node found")
+      return
+   end
    
    -- reconstruct servers, fix adds and drops
    pool:set_servers(configs)

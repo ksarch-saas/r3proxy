@@ -51,7 +51,10 @@ modula_update(struct server_pool *pool)
     pool->next_rebuild = 0LL;
 
     for (server_index = 0; server_index < nserver; server_index++) {
-        struct server *server = array_get(&pool->server, server_index);
+        struct server *server, **ps;
+
+        ps = array_get(&pool->server, server_index);
+        server = *ps;
 
         if (pool->auto_eject_hosts) {
             if (server->next_retry <= now) {
@@ -114,7 +117,10 @@ modula_update(struct server_pool *pool)
     continuum_index = 0;
     pointer_counter = 0;
     for (server_index = 0; server_index < nserver; server_index++) {
-        struct server *server = array_get(&pool->server, server_index);
+        struct server *server, **ps;
+
+        ps = array_get(&pool->server, server_index);
+        server = *ps;
 
         if (pool->auto_eject_hosts && server->next_retry > now) {
             continue;
